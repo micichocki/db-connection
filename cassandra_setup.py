@@ -247,7 +247,6 @@ def load_order_products(session, data_dir, order_timestamps):
         print("Error: No order products files found!")
         return
 
-    # First, get a dictionary of product names
     product_names = {}
     print("Loading product names into memory...")
     query = "SELECT product_id, product_name FROM products"
@@ -256,7 +255,6 @@ def load_order_products(session, data_dir, order_timestamps):
         product_names[row.product_id] = row.product_name
     print(f"Loaded {len(product_names)} product names")
 
-    # Modified query to include order_timestamp and product_name
     insert_query = """
         INSERT INTO order_products (order_id, product_id, add_to_cart_order, reordered, order_timestamp, product_name)
         VALUES (?, ?, ?, ?, ?, ?)
