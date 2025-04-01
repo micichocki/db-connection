@@ -57,12 +57,15 @@ def create_keyspace_and_tables(session, keyspace_name="instacart", replication_f
         )
     """)
 
+    # Modified order_products table to include order_timestamp and product_name
     session.execute("""
         CREATE TABLE IF NOT EXISTS order_products ( 
             order_id int,
             product_id int,
             add_to_cart_order int,
             reordered int,
+            order_timestamp timestamp,
+            product_name text,
             PRIMARY KEY (order_id, product_id)
         )
     """)
@@ -183,9 +186,11 @@ def load_orders(session, data_dir):
 
     insert_query = """
         INSERT INTO orders (order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
     """
     prepared_stmt = session.prepare(insert_query)
+
+    order_timestamps = {}
 
     with open(orders_file, 'r', encoding='utf-8') as file:
         reader = csv.reader(file)
@@ -199,10 +204,11 @@ def load_orders(session, data_dir):
         for row in tqdm(reader, desc="Orders"):
             order_id = int(row[0])
             user_id = int(row[1])
-
             order_number = int(row[3])
             order_dow = int(row[4])
             order_timestamp = generate_timestamp(hour=random.randint(0, 23), days_offset=random.randint(0, 365))
+
+            order_timestamps[order_id] = order_timestamp
 
             days_since_prior_order = None
             if row[6] and row[6] != "":
@@ -223,9 +229,10 @@ def load_orders(session, data_dir):
             total_count += batch_count
 
     print(f"Loaded {total_count} orders")
+    return order_timestamps
 
 
-def load_order_products(session, data_dir):
+def load_order_products(session, data_dir, order_timestamps):
     """Load order products data from CSV."""
     print("Loading order products data...")
     order_products_file = os.path.join(data_dir, "assets/order_products.csv")
@@ -240,9 +247,19 @@ def load_order_products(session, data_dir):
         print("Error: No order products files found!")
         return
 
+    # First, get a dictionary of product names
+    product_names = {}
+    print("Loading product names into memory...")
+    query = "SELECT product_id, product_name FROM products"
+    rows = session.execute(query)
+    for row in rows:
+        product_names[row.product_id] = row.product_name
+    print(f"Loaded {len(product_names)} product names")
+
+    # Modified query to include order_timestamp and product_name
     insert_query = """
-        INSERT INTO order_products (order_id, product_id, add_to_cart_order, reordered)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO order_products (order_id, product_id, add_to_cart_order, reordered, order_timestamp, product_name)
+        VALUES (?, ?, ?, ?, ?, ?)
     """
     prepared_stmt = session.prepare(insert_query)
 
@@ -269,7 +286,14 @@ def load_order_products(session, data_dir):
                 add_to_cart_order = int(row[2])
                 reordered = int(row[3])
 
-                batch.add(prepared_stmt, (order_id, product_id, add_to_cart_order, reordered))
+                # Get the order timestamp from our dictionary
+                order_timestamp = order_timestamps.get(order_id)
+
+                # Get the product name from our dictionary
+                product_name = product_names.get(product_id, "Unknown Product")
+
+                batch.add(prepared_stmt,
+                          (order_id, product_id, add_to_cart_order, reordered, order_timestamp, product_name))
                 batch_count += 1
 
                 if batch_count >= batch_size:
@@ -296,6 +320,10 @@ def create_indexes(session):
 
     session.execute("CREATE INDEX IF NOT EXISTS ON products (aisle_id)")
     session.execute("CREATE INDEX IF NOT EXISTS ON products (department_id)")
+
+    # Add index for the new fields in order_products
+    session.execute("CREATE INDEX IF NOT EXISTS ON order_products (order_timestamp)")
+    session.execute("CREATE INDEX IF NOT EXISTS ON order_products (product_name)")
 
     print("Indexes created successfully")
 
@@ -340,11 +368,12 @@ def main():
         if not args.skip_products:
             load_products(session, args.data_dir)
 
+        order_timestamps = {}
         if not args.skip_orders:
-            load_orders(session, args.data_dir)
+            order_timestamps = load_orders(session, args.data_dir)
 
         if not args.skip_order_products:
-            load_order_products(session, args.data_dir)
+            load_order_products(session, args.data_dir, order_timestamps)
 
         if not args.skip_indexes:
             create_indexes(session)

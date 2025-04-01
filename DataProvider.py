@@ -104,7 +104,6 @@ class DataProvider:
 
         if query_type == "select":
             for i in range(1, num_queries + 1):
-                queries.append(f"SELECT * FROM instacart.orders WHERE order_id = {i}")
 
                 queries.append(f"SELECT * FROM instacart.order_products WHERE order_id = {i} ALLOW FILTERING")
 
