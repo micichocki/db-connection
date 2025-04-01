@@ -70,7 +70,7 @@ class DataProvider:
             for i in range(1, num_queries + 1):
                 user_id = 10000 + i
                 order = {
-                    "_id": 1000000 + i,
+                    "_id": 4000000 + i,
                     "user_id": user_id,
                     "order_number": i,
                     "order_dow": i % 7,
@@ -99,26 +99,27 @@ class DataProvider:
 
     @staticmethod
     def get_cassandra_queries(query_type, num_queries=1):
-        """Generate Cassandra queries based on the query type and number of queries."""
+        """Generate optimized Cassandra queries based on the query type."""
         queries = []
 
         if query_type == "select":
             for i in range(1, num_queries + 1):
                 queries.append(f"SELECT * FROM instacart.orders WHERE order_id = {i}")
-                queries.append(f"SELECT * FROM instacart.order_products WHERE order_id = {i}")
+
+                queries.append(f"SELECT * FROM instacart.order_products WHERE order_id = {i} ALLOW FILTERING")
 
         elif query_type == "insert":
             for i in range(1, num_queries + 1):
                 user_id = 10000 + i
-                order_id = 1000000 + i
+                order_id = 4000000 + i
                 queries.append(f"""
                     INSERT INTO instacart.orders (
                         order_id, user_id, order_number, order_dow, 
-                        order_hour_of_day, days_since_prior_order
+                        order_timestamp, days_since_prior_order
                     )
                     VALUES (
                         {order_id}, {user_id}, {i}, {i % 7}, 
-                        {i % 24}, {i % 30}
+                        toTimestamp(now()), {i % 30}
                     )
                 """)
 
@@ -136,7 +137,7 @@ class DataProvider:
             for i in range(1, num_queries + 1):
                 queries.append(f"""
                     UPDATE instacart.orders 
-                    SET order_hour_of_day = {i % 24}
+                    SET order_dow = {i % 7}
                     WHERE order_id = {i}
                 """)
 
