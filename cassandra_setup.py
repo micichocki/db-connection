@@ -206,7 +206,7 @@ def load_orders(session, data_dir):
             user_id = int(row[1])
             order_number = int(row[3])
             order_dow = int(row[4])
-            order_timestamp = generate_timestamp(hour=random.randint(0, 23), days_offset=random.randint(0, 365))
+            order_timestamp = generate_timestamp(hour=int(row[5]), days_offset=int(row[6]))
 
             order_timestamps[order_id] = order_timestamp
 
