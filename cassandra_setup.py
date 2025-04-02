@@ -76,7 +76,7 @@ def create_keyspace_and_tables(session, keyspace_name="instacart", replication_f
 def load_products(session, data_dir):
     """Load products data from CSV."""
     print("Loading products data...")
-    products_file = os.path.join(data_dir, "assets/products.csv")
+    products_file = os.path.join(data_dir, "products.csv")
 
     if not os.path.exists(products_file):
         print(f"Error: {products_file} not found!")
@@ -122,7 +122,7 @@ def load_products(session, data_dir):
 def load_aisles(session, data_dir):
     """Load aisles data from CSV."""
     print("Loading aisles data...")
-    aisles_file = os.path.join(data_dir, "assets/aisles.csv")
+    aisles_file = os.path.join(data_dir, "aisles.csv")
 
     if not os.path.exists(aisles_file):
         print(f"Error: {aisles_file} not found!")
@@ -150,7 +150,7 @@ def load_aisles(session, data_dir):
 def load_departments(session, data_dir):
     """Load departments data from CSV."""
     print("Loading departments data...")
-    departments_file = os.path.join(data_dir, "assets/departments.csv")
+    departments_file = os.path.join(data_dir, "departments.csv")
 
     if not os.path.exists(departments_file):
         print(f"Error: {departments_file} not found!")
@@ -178,7 +178,7 @@ def load_departments(session, data_dir):
 def load_orders(session, data_dir):
     """Load orders data from CSV."""
     print("Loading orders data...")
-    orders_file = os.path.join(data_dir, "assets/orders.csv")
+    orders_file = os.path.join(data_dir, "orders.csv")
 
     if not os.path.exists(orders_file):
         print(f"Error: {orders_file} not found!")
@@ -196,7 +196,7 @@ def load_orders(session, data_dir):
         reader = csv.reader(file)
         next(reader)
 
-        batch_size = 1000
+        batch_size = 100
         batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
         batch_count = 0
         total_count = 0
@@ -235,7 +235,7 @@ def load_orders(session, data_dir):
 def load_order_products(session, data_dir, order_timestamps):
     """Load order products data from CSV."""
     print("Loading order products data...")
-    order_products_file = os.path.join(data_dir, "assets/order_products.csv")
+    order_products_file = os.path.join(data_dir, "orders_products.csv")
 
     files_to_process = []
     if os.path.exists(order_products_file):
@@ -273,7 +273,7 @@ def load_order_products(session, data_dir, order_timestamps):
             reader = csv.reader(file)
             next(reader)
 
-            batch_size = 1000
+            batch_size = 100
             batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
             batch_count = 0
             file_count = 0

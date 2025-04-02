@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+#  postgres-db:
+#    image: postgres:17
+#    restart: always
+#    container_name: postgres
+#    environment:
+#      POSTGRES_USER: root
+#      POSTGRES_PASSWORD: root
+#      POSTGRES_DB: instacart
+#    ports:
+#      - "5432:5432"
+#    volumes:
+#      - postgres_data:/var/lib/postgresql/data
+#
+#  mariadb-db:
+#    image: mariadb:11
+#    restart: always
+#    container_name: mariadb
+#    environment:
+#      MYSQL_ROOT_PASSWORD: root
+#      MYSQL_USER: user
+#      MYSQL_PASSWORD: user_password
+#      MYSQL_DATABASE: instacart
+#    ports:
+#      - "3306:3306"
+#    volumes:
+#      - mariadb_data:/var/lib/mysql
+
+#  mongo-db-7:
+#    image: mongo:7
+#    restart: always
+#    container_name: mongo-7
+#    environment:
+#      MONGO_INITDB_DATABASE: instacart
+#    ports:
+#      - "27017:27017"
+#    volumes:
+#      - mongodb7_data:/data/db
+
+#  mongo-db-8:
+#    image: mongo:8
+#    restart: always
+#    container_name: mongo-8
+#    environment:
+#      MONGO_INITDB_DATABASE: instacart
+#    ports:
+#      - "27018:27017"
+#    volumes:
+#      - mongodb8_data:/data/db
+
+  cassandra:
+    image: cassandra:5
+    restart: always
+    container_name: cassandra
+    environment:
+      - CASSANDRA_CLUSTER_NAME=instacart
+    ports:
+      - "9042:9042"
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+
+volumes:
+#  postgres_data:
+#  mariadb_data:
+#  mongodb7_data:
+#  mongodb8_data:
+  cassandra_data:
