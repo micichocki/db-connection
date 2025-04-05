@@ -1,6 +1,5 @@
 import csv
 import os
-import random
 
 from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement
@@ -13,7 +12,6 @@ from datetime_script import generate_timestamp
 
 
 def create_keyspace_and_tables(session, keyspace_name="instacart", replication_factor=1):
-    """Create the keyspace and tables for the Instacart dataset."""
     print("Creating keyspace and tables...")
 
     session.execute(f"""
@@ -70,11 +68,17 @@ def create_keyspace_and_tables(session, keyspace_name="instacart", replication_f
         )
     """)
 
+    session.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id int PRIMARY KEY,
+            name text
+        )
+    """)
+
     print("Keyspace and tables created successfully")
 
 
 def load_products(session, data_dir):
-    """Load products data from CSV."""
     print("Loading products data...")
     products_file = os.path.join(data_dir, "products.csv")
 
@@ -120,7 +124,6 @@ def load_products(session, data_dir):
 
 
 def load_aisles(session, data_dir):
-    """Load aisles data from CSV."""
     print("Loading aisles data...")
     aisles_file = os.path.join(data_dir, "aisles.csv")
 
@@ -148,7 +151,6 @@ def load_aisles(session, data_dir):
 
 
 def load_departments(session, data_dir):
-    """Load departments data from CSV."""
     print("Loading departments data...")
     departments_file = os.path.join(data_dir, "departments.csv")
 
@@ -176,7 +178,6 @@ def load_departments(session, data_dir):
 
 
 def load_orders(session, data_dir):
-    """Load orders data from CSV."""
     print("Loading orders data...")
     orders_file = os.path.join(data_dir, "orders.csv")
 
@@ -310,8 +311,40 @@ def load_order_products(session, data_dir, order_timestamps):
     print(f"Loaded {total_count} order products records in total")
 
 
+def load_users(session):
+    print("Loading users data...")
+
+    insert_query = """
+        INSERT INTO users (user_id, name)
+        VALUES (?, ?)
+    """
+    prepared_stmt = session.prepare(insert_query)
+
+    batch_size = 100
+    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
+    batch_count = 0
+    total_count = 0
+
+    for user_id in tqdm(range(1, 206210), desc="Users"):
+        name = f"User{user_id}"
+
+        batch.add(prepared_stmt, (user_id, name))
+        batch_count += 1
+
+        if batch_count >= batch_size:
+            session.execute(batch)
+            batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
+            batch_count = 0
+            total_count += batch_size
+
+    if batch_count > 0:
+        session.execute(batch)
+        total_count += batch_count
+
+    print(f"Loaded {total_count} users")
+
+
 def create_indexes(session):
-    """Create indexes for better query performance."""
     print("Creating indexes...")
 
     session.execute("CREATE INDEX IF NOT EXISTS ON orders (user_id)")
@@ -340,6 +373,7 @@ def main():
     parser.add_argument("--skip-products", action="store_true", help="Skip loading products data")
     parser.add_argument("--skip-orders", action="store_true", help="Skip loading orders data")
     parser.add_argument("--skip-order-products", action="store_true", help="Skip loading order products data")
+    parser.add_argument("--skip-users", action="store_true", help="Skip loading users data")
 
     args = parser.parse_args()
 
@@ -372,6 +406,9 @@ def main():
 
         if not args.skip_order_products:
             load_order_products(session, args.data_dir, order_timestamps)
+
+        if not args.skip_users:
+            load_users(session)
 
         if not args.skip_indexes:
             create_indexes(session)
