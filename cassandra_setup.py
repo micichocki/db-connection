@@ -1,5 +1,6 @@
 import csv
 import os
+from datetime import datetime
 
 from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement
@@ -210,12 +211,9 @@ def load_orders(session, data_dir):
             user_id = int(row[1])
             order_number = int(row[3])
             order_dow = int(row[4])
-            order_timestamp = generate_timestamp(hour=int(row[5]), days_offset=int(row[6]))
-
-            days_since_prior_order = None
-            if row[6] and row[6] != "":
-                days_since_prior_order = int(float(row[6]))
-
+            order_timestamp = datetime.strptime(
+                generate_timestamp(hour=int(float(row[5])), days_offset=int(float(row[6] or 0))), "%Y-%m-%d %H:%M:%S")
+            days_since_prior_order = int(float(row[6])) if row[6] and row[6] != "" else 0
             order_data[order_id] = {
                 'user_id': user_id,
                 'order_number': order_number,

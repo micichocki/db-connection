@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-def generate_timestamp(hour: int, days_offset: int) -> str:
+def generate_timestamp(hour: int = 1, days_offset: int = 0) -> str:
     """
     Generuje timestamp na podstawie godziny (0-23) i liczby dni od 2020-01-01.
 
