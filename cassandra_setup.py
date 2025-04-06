@@ -55,15 +55,18 @@ def create_keyspace_and_tables(session, keyspace_name="instacart", replication_f
         )
     """)
 
-    # Modified order_products table to include order_timestamp and product_name
     session.execute("""
-        CREATE TABLE IF NOT EXISTS order_products ( 
+        CREATE TABLE IF NOT EXISTS order_products_by_order ( 
             order_id int,
             product_id int,
+            user_id int,
+            order_number int,
+            order_dow int,
+            order_timestamp timestamp,
+            days_since_prior_order int,
+            product_name text,
             add_to_cart_order int,
             reordered int,
-            order_timestamp timestamp,
-            product_name text,
             PRIMARY KEY (order_id, product_id)
         )
     """)
@@ -191,7 +194,7 @@ def load_orders(session, data_dir):
     """
     prepared_stmt = session.prepare(insert_query)
 
-    order_timestamps = {}
+    order_data = {}
 
     with open(orders_file, 'r', encoding='utf-8') as file:
         reader = csv.reader(file)
@@ -209,11 +212,17 @@ def load_orders(session, data_dir):
             order_dow = int(row[4])
             order_timestamp = generate_timestamp(hour=int(row[5]), days_offset=int(row[6]))
 
-            order_timestamps[order_id] = order_timestamp
-
             days_since_prior_order = None
             if row[6] and row[6] != "":
                 days_since_prior_order = int(float(row[6]))
+
+            order_data[order_id] = {
+                'user_id': user_id,
+                'order_number': order_number,
+                'order_dow': order_dow,
+                'order_timestamp': order_timestamp,
+                'days_since_prior_order': days_since_prior_order
+            }
 
             batch.add(prepared_stmt,
                       (order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order))
@@ -230,12 +239,11 @@ def load_orders(session, data_dir):
             total_count += batch_count
 
     print(f"Loaded {total_count} orders")
-    return order_timestamps
+    return order_data
 
 
-def load_order_products(session, data_dir, order_timestamps):
-    """Load order products data from CSV."""
-    print("Loading order products data...")
+def load_order_products_by_order(session, data_dir, order_data):
+    print("Loading order products data into order_products_by_order...")
     order_products_file = os.path.join(data_dir, "orders_products.csv")
 
     files_to_process = []
@@ -257,8 +265,12 @@ def load_order_products(session, data_dir, order_timestamps):
     print(f"Loaded {len(product_names)} product names")
 
     insert_query = """
-        INSERT INTO order_products (order_id, product_id, add_to_cart_order, reordered, order_timestamp, product_name)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO order_products_by_order (
+            order_id, product_id, user_id, order_number, order_dow,
+            order_timestamp, days_since_prior_order, product_name,
+            add_to_cart_order, reordered
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     prepared_stmt = session.prepare(insert_query)
 
@@ -285,14 +297,25 @@ def load_order_products(session, data_dir, order_timestamps):
                 add_to_cart_order = int(row[2])
                 reordered = int(row[3])
 
-                # Get the order timestamp from our dictionary
-                order_timestamp = order_timestamps.get(order_id)
+                order_info = order_data.get(order_id, {})
+                if not order_info:
+                    print(f"Warning: No order data found for order_id {order_id}")
+                    continue
 
-                # Get the product name from our dictionary
                 product_name = product_names.get(product_id, "Unknown Product")
 
-                batch.add(prepared_stmt,
-                          (order_id, product_id, add_to_cart_order, reordered, order_timestamp, product_name))
+                batch.add(prepared_stmt, (
+                    order_id,
+                    product_id,
+                    order_info.get('user_id'),
+                    order_info.get('order_number'),
+                    order_info.get('order_dow'),
+                    order_info.get('order_timestamp'),
+                    order_info.get('days_since_prior_order'),
+                    product_name,
+                    add_to_cart_order,
+                    reordered
+                ))
                 batch_count += 1
 
                 if batch_count >= batch_size:
@@ -352,9 +375,9 @@ def create_indexes(session):
     session.execute("CREATE INDEX IF NOT EXISTS ON products (aisle_id)")
     session.execute("CREATE INDEX IF NOT EXISTS ON products (department_id)")
 
-    # Add index for the new fields in order_products
-    session.execute("CREATE INDEX IF NOT EXISTS ON order_products (order_timestamp)")
-    session.execute("CREATE INDEX IF NOT EXISTS ON order_products (product_name)")
+    session.execute("CREATE INDEX IF NOT EXISTS ON order_products_by_order (user_id)")
+    session.execute("CREATE INDEX IF NOT EXISTS ON order_products_by_order (product_name)")
+    session.execute("CREATE INDEX IF NOT EXISTS ON order_products_by_order (order_timestamp)")
 
     print("Indexes created successfully")
 
@@ -400,12 +423,12 @@ def main():
         if not args.skip_products:
             load_products(session, args.data_dir)
 
-        order_timestamps = {}
+        order_data = {}
         if not args.skip_orders:
-            order_timestamps = load_orders(session, args.data_dir)
+            order_data = load_orders(session, args.data_dir)
 
         if not args.skip_order_products:
-            load_order_products(session, args.data_dir, order_timestamps)
+            load_order_products_by_order(session, args.data_dir, order_data)
 
         if not args.skip_users:
             load_users(session)

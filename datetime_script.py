@@ -6,7 +6,6 @@ def generate_timestamp(hour: int, days_offset: int) -> str:
 
     :param hour: Godzina (0-23)
     :param days_offset: Liczba dni od 2020-01-01 (liczba naturalna)
-    :return: Timestamp UNIX (int)
     """
     if not (0 <= hour <= 23):
         raise ValueError("Godzina musi być w zakresie 0-23")

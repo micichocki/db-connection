@@ -43,11 +43,14 @@ def execute_sql_queries(connection, queries, db_type, number_of_query_executions
     cursor = connection.cursor()
 
     def execute_queries():
-        for query in queries:
-            cursor.execute(query)
-        connection.commit()
+        try:
+            for query in queries:
+                cursor.execute(query)
+        except Exception as e:
+            print(f"Error during execution: {e}")
 
     execution_time = timeit.timeit(execute_queries, number=number_of_query_executions)
+    connection.rollback()
     avg_execution_time = execution_time / number_of_query_executions
     print(f"{db_type} average execution time per {number_of_query_executions} calls: {avg_execution_time} seconds")
     log_execution_time(db_type, queries, execution_time)
