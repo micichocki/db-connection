@@ -3,6 +3,7 @@ click==8.1.8
 dnspython==2.7.0
 geomet==0.2.1.post1
 mariadb==1.1.12
+matplotlib==3.10.1
 packaging==24.2
 psycopg2==2.9.10
 pymongo==4.11.2
