@@ -1,12 +1,12 @@
 from datetime_script import generate_timestamp
-
+from datetime import datetime
 
 class DataProvider:
     @staticmethod
-    def get_postgres_queries(query_type, num_queries=1):
+    def get_postgres_queries(test_name, num_queries=1):
         queries = []
 
-        if query_type == "select":
+        if test_name == "select":
             for i in range(1, num_queries + 1):
                 order_id = i
                 queries.append(f"""
@@ -19,7 +19,7 @@ class DataProvider:
                     WHERE o.order_id = {order_id}
                 """)
 
-        elif query_type == "insert":
+        elif test_name == "insert":
             for i in range(1, num_queries + 1):
                 user_id = 206210 + i
                 order_number = i
@@ -34,7 +34,7 @@ class DataProvider:
                     RETURNING order_id
                 """)
 
-        elif query_type == "update":
+        elif test_name == "update":
             for i in range(1, num_queries + 1):
                 order_id = i
                 timestamp = generate_timestamp(i % 24, i % 30)
@@ -44,7 +44,7 @@ class DataProvider:
                     WHERE order_id = {order_id}
                 """)
 
-        elif query_type == "delete":
+        elif test_name == "delete":
             for i in range(1, num_queries + 1):
                 order_id = i
                 queries.append(f"""
@@ -54,10 +54,10 @@ class DataProvider:
         return queries
 
     @staticmethod
-    def get_mariadb_queries(query_type, num_queries=1):
+    def get_mariadb_queries(test_name, num_queries=1):
         queries = []
 
-        if query_type == "select":
+        if test_name == "select":
             for i in range(1, num_queries + 1):
                 order_id = i
                 queries.append(f"""
@@ -70,7 +70,7 @@ class DataProvider:
                     WHERE o.order_id = {order_id}
                 """)
 
-        elif query_type == "insert":
+        elif test_name == "insert":
             for i in range(1, num_queries + 1):
                 user_id = 206210 + i
                 order_number = i
@@ -84,7 +84,7 @@ class DataProvider:
                     VALUES ({user_id}, {order_number}, {order_dow}, '{timestamp}', {days_since_prior})
                 """)
 
-        elif query_type == "update":
+        elif test_name == "update":
             for i in range(1, num_queries + 1):
                 order_id = i
                 timestamp = generate_timestamp(i % 24, i % 30)
@@ -94,7 +94,7 @@ class DataProvider:
                     WHERE order_id = {order_id}
                 """)
 
-        elif query_type == "delete":
+        elif test_name == "delete":
             for i in range(1, num_queries + 1):
                 order_id = i
                 queries.append(f"""
@@ -104,48 +104,125 @@ class DataProvider:
         return queries
 
     @staticmethod
-    def get_mongo_queries(query_type, num_queries=1):
+    def get_mongo_queries(test_name, num_queries=1):
         queries = []
 
-        if query_type == "select":
+        if test_name == "select_base":
             for i in range(1, num_queries + 1):
-                queries.append(("orders", "find_one", [{"_id": i}, {
+                queries.append(("orders", "find_one", [{"order_id": i}, {
                     "user_id": 1,
+                    "order_dow": 1,
                     "order_number": 1,
-                    "products": 1,
-                    "order_timestamp": 1
+                    "order_datetime": 1
                 }]))
 
-        elif query_type == "insert":
-            for i in range(1, num_queries + 1):
-                user_id = 206210 + i
 
+        elif test_name == "select_join":
+            for i in range(1, num_queries + 1):
+                queries.append(("orders", "aggregate", [[
+                    {"$match": {"order_id": i}},
+                    {"$unwind": "$products"},
+                    {"$lookup": {
+                        "from": "products",
+                        "localField": "products.product_id",
+                        "foreignField": "product_id",
+                        "as": "product_details"
+                    }},
+                    {"$unwind": "$product_details"},
+                    {"$project": {
+                        "order_id": 1,
+                        "user_id": 1,
+                        "order_number": 1,
+                        "order_datetime": 1,
+                        "product_name": "$products.product_name",
+                        "aisle_id": "$product_details.aisle_id",
+                        "department_id": "$product_details.department_id"
+                    }}
+                ]]))
+
+
+        elif test_name == "select_date":
+            for i in range(1, num_queries + 1):
+                ts = generate_timestamp((i % 24), (i % 30), True)
+                queries.append(("orders", "find_one", [{
+                    "order_datetime": {
+                        "$gte": datetime.fromtimestamp(ts)
+                    }
+                }, {
+                    "user_id": 1,
+                    "order_number": 1,
+                    "order_datetime": 1
+                }]))
+
+        elif test_name == "insert_base":
+            for i in range(1, num_queries + 1):
+                user = {
+                    "user_id": 300000 + i,
+                    "name": f"User{300000 + i}"
+                }
+                queries.append(("users", "insert_one", [user]))
+
+        elif test_name == "insert_multi":
+            for i in range(1, num_queries + 1):
+                ts = generate_timestamp((i % 24), (i % 30), True)
+                order_id = 5000000 + i
+                user_id = 300000 + i
                 order = {
-                    "_id": 4000000 + i,
+                    "order_id": order_id,
                     "user_id": user_id,
                     "order_number": i,
                     "order_dow": i % 7,
-                    "order_timestamp": generate_timestamp(i % 24, i % 30),
-                    "days_since_prior_order": i % 30,
+                    "order_datetime": datetime.fromtimestamp(ts),
+                    "products": [
+                        {"product_id": 50001, "product_name": "Product A"},
+                        {"product_id": 50002, "product_name": "Product B"}
+                    ]
                 }
                 queries.append(("orders", "insert_one", [order]))
-
-        elif query_type == "update":
+        
+        elif test_name == "update_base":
             for i in range(1, num_queries + 1):
-                queries.append(("orders", "update_one",
-                                [{"_id": i}, {"$set": {"order_timestamp": generate_timestamp(i % 24, i % 30)}}]))
+                queries.append(("aisles", "update_one", [
+                    {"aisle_id": i % 100},
+                    {"$set": {"aisle": f"Updated Aisle {i % 7}"}}
+                ]))
 
-        elif query_type == "delete":
+        elif test_name == 'delete_base' or test_name == 'delete_mutli':
             for i in range(1, num_queries + 1):
-                queries.append(("orders", "delete_one", [{"_id": i}]))
+                queries.append(("orders", "delete_one", [
+                    {"order_id": i}
+                ]))
+
+        # elif test_name == "insert":
+        #     for i in range(1, num_queries + 1):
+        #         user_id = 206210 + i
+
+        #         order = {
+        #             "_id": 4000000 + i,
+        #             "user_id": user_id,
+        #             "order_number": i,
+        #             "order_dow": i % 7,
+        #             "order_timestamp": generate_timestamp(i % 24, i % 30),
+        #             "days_since_prior_order": i % 30,
+        #         }
+        #         queries.append(("orders", "insert_one", [order]))
+
+        # elif test_name == "update":
+        #     for i in range(1, num_queries + 1):
+        #         queries.append(("orders", "update_one",
+        #                         [{"_id": i}, {"$set": {"order_timestamp": generate_timestamp(i % 24, i % 30)}}]))
+
+        # elif test_name == "delete":
+        #     for i in range(1, num_queries + 1):
+        #         queries.append(("orders", "delete_one", [{"_id": i}]))
 
         return queries
 
     @staticmethod
-    def get_cassandra_queries(query_type, num_queries=1):
+    def get_cassandra_queries(test_name, num_queries=1):
         queries = []
 
-        if query_type == "select":
+        if test_name == "select":
             for i in range(1, num_queries + 1):
                 order_id = i
                 queries.append(f"""
@@ -155,7 +232,7 @@ class DataProvider:
                     WHERE order_id = {order_id}
                 """)
 
-        elif query_type == "insert":
+        elif test_name == "insert":
             for i in range(1, num_queries + 1):
                 user_id = 206210 + i
                 order_id = 4000000 + i
@@ -190,7 +267,7 @@ class DataProvider:
                         )
                     """)
 
-        elif query_type == "update":
+        elif test_name == "update":
             for i in range(1, num_queries + 1):
                 order_id = i
                 timestamp = generate_timestamp(i % 24, i % 30)
@@ -207,7 +284,7 @@ class DataProvider:
                     WHERE order_id = {order_id}
                 """)
 
-        elif query_type == "delete":
+        elif test_name == "delete":
             for i in range(1, num_queries + 1):
                 order_id = i
 

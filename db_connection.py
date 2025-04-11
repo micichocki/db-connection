@@ -230,11 +230,25 @@ def run_postgres(credentials, number_of_queries, test_name, number_of_query_exec
     save_test_result('postgres', test_name, number_of_queries, execution_time)
     connection.close()
 
+test_names = ["insert_base", 
+              "insert_multi", 
+              "select_base", 
+              "select_join", 
+              "select_date", 
+              "update_base", 
+              "delete_base", 
+            # To remove
+              "insert",
+              "update", 
+              "delete", 
+              "select"
+            ]
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Database query execution script.")
     parser.add_argument("--db_type", type=str, required=True, choices=["postgres", "mongo", "cassandra", "mariadb", "sqlite"], help="Type of the database.")
     parser.add_argument("--queries_num", type=int, default=1, help="Number of times to execute the queries.")
-    parser.add_argument("--test_name", type=str, required=True, choices=["insert", "update", "delete", "select"], help="Type of the queries to execute.")
+    parser.add_argument("--test_name", type=str, required=True, choices=test_names, help="Type of the queries to execute.")
     parser.add_argument("--executions_num", type=int, default=1, help="Number of times to execute the entire set of queries.")
     args = parser.parse_args()
 
