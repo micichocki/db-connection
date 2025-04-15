@@ -57,6 +57,16 @@ def create_keyspace_and_tables(session, keyspace_name="instacart", replication_f
     """)
 
     session.execute("""
+        CREATE TABLE IF NOT EXISTS orders_by_timestamp (
+            order_timestamp timestamp,
+            order_id int,
+            user_id int,
+            order_number int,
+            PRIMARY KEY (order_timestamp, order_id)
+        )
+    """)
+
+    session.execute("""
         CREATE TABLE IF NOT EXISTS order_products_by_order ( 
             order_id int,
             product_id int,
@@ -195,6 +205,12 @@ def load_orders(session, data_dir):
     """
     prepared_stmt = session.prepare(insert_query)
 
+    insert_by_timestamp_query = """
+        INSERT INTO orders_by_timestamp (order_timestamp, order_id, user_id, order_number)
+        VALUES (?, ?, ?, ?)
+    """
+    prepared_by_timestamp_stmt = session.prepare(insert_by_timestamp_query)
+
     order_data = {}
 
     with open(orders_file, 'r', encoding='utf-8') as file:
@@ -203,6 +219,7 @@ def load_orders(session, data_dir):
 
         batch_size = 100
         batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
+        batch_timestamp = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
         batch_count = 0
         total_count = 0
 
@@ -224,16 +241,21 @@ def load_orders(session, data_dir):
 
             batch.add(prepared_stmt,
                       (order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order))
+            batch_timestamp.add(prepared_by_timestamp_stmt,
+                                (order_timestamp, order_id, user_id, order_number))
             batch_count += 1
 
             if batch_count >= batch_size:
                 session.execute(batch)
+                session.execute(batch_timestamp)
                 batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
+                batch_timestamp = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
                 batch_count = 0
                 total_count += batch_size
 
         if batch_count > 0:
             session.execute(batch)
+            session.execute(batch_timestamp)
             total_count += batch_count
 
     print(f"Loaded {total_count} orders")

@@ -222,38 +222,80 @@ class DataProvider:
     def get_cassandra_queries(test_name, num_queries=1):
         queries = []
 
-        if test_name == "select":
+        if test_name == "select_base":
             for i in range(1, num_queries + 1):
                 order_id = i
                 queries.append(f"""
-                    SELECT order_id, user_id, order_number, order_dow, order_timestamp,
-                           product_id, product_name, add_to_cart_order, reordered
+                    SELECT order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order
+                    FROM instacart.orders
+                    WHERE order_id = {order_id}
+                """)
+
+        elif test_name == "select_join":
+            for i in range(1, num_queries + 1):
+                order_id = i
+                queries.append(f"""
+                    SELECT order_id, user_id, order_number, order_dow, 
+                           order_timestamp, product_id, product_name,
+                           add_to_cart_order, reordered
                     FROM instacart.order_products_by_order
                     WHERE order_id = {order_id}
                 """)
 
-        elif test_name == "insert":
+        elif test_name == "select_date":
             for i in range(1, num_queries + 1):
-                user_id = 206210 + i
-                order_id = 4000000 + i
-                order_number = i
-                order_dow = i % 7
-                days_since_prior = i % 30
-                timestamp = generate_timestamp(i % 24, i % 30)
-
+                ts = generate_timestamp(i % 24, i % 30)
                 queries.append(f"""
-                    INSERT INTO instacart.orders (
-                        order_id, user_id, order_number, order_dow, 
-                        order_timestamp, days_since_prior_order
+                    SELECT order_id, user_id, order_number, order_timestamp
+                    FROM instacart.orders_by_timestamp
+                    WHERE order_timestamp >= '{ts}'
+                    LIMIT 1
+                """)
+
+        elif test_name == "insert_base":
+            for i in range(1, num_queries + 1):
+                user_id = 300000 + i
+                queries.append(f"""
+                    INSERT INTO instacart.users (
+                        user_id, name
                     )
                     VALUES (
-                        {order_id}, {user_id}, {order_number}, {order_dow}, 
-                        '{timestamp}', {days_since_prior}
+                        {user_id}, 'User{user_id}'
                     )
                 """)
 
-                for j in range(i % 5 + 1):
-                    product_id = 100 + j
+        elif test_name == "insert_multi":
+            for i in range(1, num_queries + 1):
+                user_id = 300000 + i
+                order_id = 5000000 + i
+                order_number = i
+                order_dow = i % 7
+                ts = generate_timestamp(i % 24, i % 30)
+                days_since_prior = i % 30
+
+                queries.append(f"""
+                    INSERT INTO instacart.orders (
+                        order_id, user_id, order_number, order_dow,
+                        order_timestamp, days_since_prior_order
+                    )
+                    VALUES (
+                        {order_id}, {user_id}, {order_number}, {order_dow},
+                        '{ts}', {days_since_prior}
+                    )
+                """)
+
+                queries.append(f"""
+                    INSERT INTO instacart.orders_by_timestamp (
+                        order_timestamp, order_id, user_id, order_number
+                    )
+                    VALUES (
+                        '{ts}', {order_id}, {user_id}, {order_number}
+                    )
+                """)
+
+                for j in range(1, 3):
+                    product_id = 50000 + i
+                    product_name = f"Product {i}-{j}"
                     queries.append(f"""
                         INSERT INTO instacart.order_products_by_order (
                             order_id, product_id, user_id, order_number, order_dow,
@@ -262,39 +304,53 @@ class DataProvider:
                         )
                         VALUES (
                             {order_id}, {product_id}, {user_id}, {order_number}, {order_dow},
-                            '{timestamp}', {days_since_prior},
-                            'Product {product_id}', {j + 1}, {i % 2}
+                            '{ts}', {days_since_prior},
+                            '{product_name}', {j}, {i % 2}
                         )
                     """)
 
-        elif test_name == "update":
+        elif test_name == "update_base":
+            for i in range(1, num_queries + 1):
+                aisle_id = i % 100
+                queries.append(f"""
+                    UPDATE instacart.aisles
+                    SET aisle = 'Updated Aisle {i % 7}'
+                    WHERE aisle_id = {aisle_id}
+                """)
+
+        elif test_name == "delete_base":
             for i in range(1, num_queries + 1):
                 order_id = i
-                timestamp = generate_timestamp(i % 24, i % 30)
-
                 queries.append(f"""
-                    UPDATE instacart.orders 
-                    SET order_timestamp = '{timestamp}'
+                    DELETE FROM instacart.orders
                     WHERE order_id = {order_id}
                 """)
 
-                queries.append(f"""
-                    UPDATE instacart.order_products_by_order 
-                    SET order_timestamp = '{timestamp}'
-                    WHERE order_id = {order_id}
-                """)
-
-        elif test_name == "delete":
+        elif test_name == "delete_multi":
             for i in range(1, num_queries + 1):
                 order_id = i
 
                 queries.append(f"""
-                    DELETE FROM instacart.order_products_by_order 
+                    DELETE FROM instacart.products
+                    WHERE product_id IN (
+                        SELECT product_id 
+                        FROM instacart.order_products_by_order 
+                        WHERE order_id = {order_id}
+                    )
+                """)
+
+                queries.append(f"""
+                    DELETE FROM instacart.order_products_by_order
                     WHERE order_id = {order_id}
                 """)
 
                 queries.append(f"""
-                    DELETE FROM instacart.orders 
+                    DELETE FROM instacart.orders_by_timestamp
+                    WHERE order_id = {order_id}
+                """)
+
+                queries.append(f"""
+                    DELETE FROM instacart.orders
                     WHERE order_id = {order_id}
                 """)
 
