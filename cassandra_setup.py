@@ -58,11 +58,11 @@ def create_keyspace_and_tables(session, keyspace_name="instacart", replication_f
 
     session.execute("""
         CREATE TABLE IF NOT EXISTS orders_by_timestamp (
-            order_timestamp timestamp,
             order_id int,
+            order_timestamp timestamp,
             user_id int,
             order_number int,
-            PRIMARY KEY (order_timestamp, order_id)
+            PRIMARY KEY (order_id, order_timestamp)
         )
     """)
 
@@ -206,7 +206,7 @@ def load_orders(session, data_dir):
     prepared_stmt = session.prepare(insert_query)
 
     insert_by_timestamp_query = """
-        INSERT INTO orders_by_timestamp (order_timestamp, order_id, user_id, order_number)
+        INSERT INTO orders_by_timestamp (order_id, order_timestamp, user_id, order_number)
         VALUES (?, ?, ?, ?)
     """
     prepared_by_timestamp_stmt = session.prepare(insert_by_timestamp_query)
@@ -242,7 +242,7 @@ def load_orders(session, data_dir):
             batch.add(prepared_stmt,
                       (order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order))
             batch_timestamp.add(prepared_by_timestamp_stmt,
-                                (order_timestamp, order_id, user_id, order_number))
+                                (order_id, order_timestamp, user_id, order_number))
             batch_count += 1
 
             if batch_count >= batch_size:

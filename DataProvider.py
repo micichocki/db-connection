@@ -249,7 +249,7 @@ class DataProvider:
                     SELECT order_id, user_id, order_number, order_timestamp
                     FROM instacart.orders_by_timestamp
                     WHERE order_timestamp >= '{ts}'
-                    LIMIT 1
+                    LIMIT 1 ALLOW FILTERING
                 """)
 
         elif test_name == "insert_base":
@@ -331,15 +331,6 @@ class DataProvider:
                 order_id = i
 
                 queries.append(f"""
-                    DELETE FROM instacart.products
-                    WHERE product_id IN (
-                        SELECT product_id 
-                        FROM instacart.order_products_by_order 
-                        WHERE order_id = {order_id}
-                    )
-                """)
-
-                queries.append(f"""
                     DELETE FROM instacart.order_products_by_order
                     WHERE order_id = {order_id}
                 """)
@@ -355,3 +346,4 @@ class DataProvider:
                 """)
 
         return queries
+
