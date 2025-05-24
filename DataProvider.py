@@ -21,7 +21,7 @@ class DataProvider:
                 LIMIT {records_number}
             """
         elif test_name == "select_date":
-            ts = generate_timestamp(1, 1)  # Use a fixed timestamp for consistency
+            ts = generate_timestamp(1, 1)
             return f"""
                 SELECT order_id, user_id, order_number, order_timestamp
                 FROM orders
@@ -29,16 +29,20 @@ class DataProvider:
                 LIMIT {records_number}
             """
         elif test_name == "insert_base":
-            batch_query = ""
+            values_list = []
             for i in range(1, records_number + 1):
                 user_id = 300000 + i
-                batch_query += f"""
-                    INSERT INTO users (name)
-                    VALUES ('User{user_id}');
-                """
+                values_list.append(f"('User{user_id}')")
+
+            batch_query = f"""
+                INSERT INTO users (name)
+                VALUES {', '.join(values_list)};
+            """
             return batch_query
         elif test_name == "insert_multi":
-            batch_query = ""
+            orders_values = []
+            orders_products_values = []
+
             for i in range(1, records_number + 1):
                 user_id = 300000 + i
                 order_id = 5000000 + i
@@ -47,17 +51,23 @@ class DataProvider:
                 ts = generate_timestamp(i % 24, i % 30)
                 days_since_prior = i % 30
 
-                batch_query += f"""
-                    INSERT INTO orders (order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order)
-                    VALUES ({order_id}, {user_id}, {order_number}, {order_dow}, '{ts}', {days_since_prior});
-                """
+                orders_values.append(
+                    f"({order_id}, {user_id}, {order_number}, {order_dow}, '{ts}', {days_since_prior})"
+                )
 
                 for j in range(1, min(3, records_number + 1)):
                     product_id = 50000 + i
-                    batch_query += f"""
-                        INSERT INTO orders_products (order_id, product_id, add_to_cart_order, reordered)
-                        VALUES ({order_id}, {product_id}, {j}, {i % 2});
-                    """
+                    orders_products_values.append(
+                        f"({order_id}, {product_id}, {j}, {i % 2})"
+                    )
+
+            batch_query = f"""
+                INSERT INTO orders (order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order)
+                VALUES {', '.join(orders_values)};
+
+                INSERT INTO orders_products (order_id, product_id, add_to_cart_order, reordered)
+                VALUES {', '.join(orders_products_values)};
+            """
             return batch_query
         elif test_name == "update_base":
             return f"""
@@ -108,16 +118,20 @@ class DataProvider:
                 LIMIT {records_number}
             """
         elif test_name == "insert_base":
-            batch_query = ""
+            values_list = []
             for i in range(1, records_number + 1):
                 user_id = 300000 + i
-                batch_query += f"""
-                    INSERT INTO users (user_id, name)
-                    VALUES ({user_id}, 'User{user_id}');
-                """
+                values_list.append(f"({user_id}, 'User{user_id}')")
+
+            batch_query = f"""
+                INSERT INTO users (user_id, name)
+                VALUES {', '.join(values_list)};
+            """
             return batch_query
         elif test_name == "insert_multi":
-            batch_query = ""
+            orders_values = []
+            orders_products_values = []
+
             for i in range(1, records_number + 1):
                 user_id = 300000 + i
                 order_id = 5000000 + i
@@ -126,17 +140,23 @@ class DataProvider:
                 ts = generate_timestamp(i % 24, i % 30)
                 days_since_prior = i % 30
 
-                batch_query += f"""
-                    INSERT INTO orders (order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order)
-                    VALUES ({order_id}, {user_id}, {order_number}, {order_dow}, '{ts}', {days_since_prior});
-                """
+                orders_values.append(
+                    f"({order_id}, {user_id}, {order_number}, {order_dow}, '{ts}', {days_since_prior})"
+                )
 
                 for j in range(1, min(3, records_number + 1)):
                     product_id = 50000 + i
-                    batch_query += f"""
-                        INSERT INTO orders_products (order_id, product_id, add_to_cart_order, reordered)
-                        VALUES ({order_id}, {product_id}, {j}, {i % 2});
-                    """
+                    orders_products_values.append(
+                        f"({order_id}, {product_id}, {j}, {i % 2})"
+                    )
+
+            batch_query = f"""
+                INSERT INTO orders (order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order)
+                VALUES {', '.join(orders_values)};
+
+                INSERT INTO orders_products (order_id, product_id, add_to_cart_order, reordered)
+                VALUES {', '.join(orders_products_values)};
+            """
             return batch_query
         elif test_name == "update_base":
             return f"""
@@ -236,7 +256,7 @@ class DataProvider:
                     ]
                 }
                 queries.append(("orders", "insert_one", [order]))
-        
+
         elif test_name == "update_base":
             for i in range(1, num_queries + 1):
                 queries.append(("aisles", "update_one", [
@@ -294,7 +314,7 @@ class DataProvider:
             """
 
         elif test_name == "select_date":
-            ts = generate_timestamp(1, 1)  # Use a fixed timestamp for consistency
+            ts = generate_timestamp(1, 1)
             return f"""
                 SELECT order_id, user_id, order_number, order_timestamp
                 FROM instacart.orders_by_timestamp
