@@ -3,103 +3,99 @@ from datetime import datetime
 
 class DataProvider:
     @staticmethod
-    def get_postgres_queries(test_name, num_queries=1):
+    def get_postgres_queries(test_name, records_number):
         queries = []
-
         if test_name == "select":
-            for i in range(1, num_queries + 1):
-                order_id = i
-                queries.append(f"""
+            return f"""
                     SELECT o.order_id, o.user_id, o.order_number, 
-                           p.product_id, p.product_name, p.price, p.department_id,
+                           p.product_id, p.product_name, p.department_id,
                            op.add_to_cart_order, op.reordered
                     FROM orders o
-                    JOIN order_products op ON o.order_id = op.order_id
+                    JOIN orders_products op ON o.order_id = op.order_id
                     JOIN products p ON op.product_id = p.product_id
-                    WHERE o.order_id = {order_id}
-                """)
+                    LIMIT {records_number}
+                """;
 
-        elif test_name == "insert":
-            for i in range(1, num_queries + 1):
-                user_id = 206210 + i
-                order_number = i
-                order_dow = i % 7
-                order_hour = i % 24
-                days_since_prior = i % 30
-                timestamp = generate_timestamp(order_hour, days_since_prior)
 
-                queries.append(f"""
-                    INSERT INTO orders (user_id, order_number, order_dow, order_timestamp, days_since_prior_order)
-                    VALUES ({user_id}, {order_number}, {order_dow}, '{timestamp}', {days_since_prior})
-                    RETURNING order_id
-                """)
-
-        elif test_name == "update":
-            for i in range(1, num_queries + 1):
-                order_id = i
-                timestamp = generate_timestamp(i % 24, i % 30)
-                queries.append(f"""
-                    UPDATE orders 
-                    SET order_timestamp = '{timestamp}'
-                    WHERE order_id = {order_id}
-                """)
-
-        elif test_name == "delete":
-            for i in range(1, num_queries + 1):
-                order_id = i
-                queries.append(f"""
-                    DELETE FROM orders WHERE order_id = {order_id}
-                """)
+        # elif test_name == "insert":
+        #     for i in range(1, num_queries + 1):
+        #         user_id = 206210 + i
+        #         order_number = i
+        #         order_dow = i % 7
+        #         order_hour = i % 24
+        #         days_since_prior = i % 30
+        #         timestamp = generate_timestamp(order_hour, days_since_prior)
+        #
+        #         queries.append(f"""
+        #             INSERT INTO orders (user_id, order_number, order_dow, order_timestamp, days_since_prior_order)
+        #             VALUES ({user_id}, {order_number}, {order_dow}, '{timestamp}', {days_since_prior})
+        #             RETURNING order_id
+        #         """)
+        #
+        # elif test_name == "update":
+        #     for i in range(1, num_queries + 1):
+        #         order_id = i
+        #         timestamp = generate_timestamp(i % 24, i % 30)
+        #         queries.append(f"""
+        #             UPDATE orders
+        #             SET order_timestamp = '{timestamp}'
+        #             WHERE order_id = {order_id}
+        #         """)
+        #
+        # elif test_name == "delete":
+        #     for i in range(1, num_queries + 1):
+        #         order_id = i
+        #         queries.append(f"""
+        #             DELETE FROM orders WHERE order_id = {order_id}
+        #         """)
 
         return queries
 
     @staticmethod
-    def get_mariadb_queries(test_name, num_queries=1):
+    def get_mariadb_queries(test_name, records_number):
         queries = []
 
         if test_name == "select":
-            for i in range(1, num_queries + 1):
-                order_id = i
-                queries.append(f"""
+            return f"""
                     SELECT o.order_id, o.user_id, o.order_number, 
-                           p.product_id, p.product_name, p.price, p.department_id,
+                           p.product_id, p.product_name, p.department_id,
                            op.add_to_cart_order, op.reordered
                     FROM orders o
-                    JOIN order_products op ON o.order_id = op.order_id
+                    JOIN orders_products op ON o.order_id = op.order_id
                     JOIN products p ON op.product_id = p.product_id
-                    WHERE o.order_id = {order_id}
-                """)
+                    LIMIT {records_number}
+                """;
 
-        elif test_name == "insert":
-            for i in range(1, num_queries + 1):
-                user_id = 206210 + i
-                order_number = i
-                order_dow = i % 7
-                order_hour = i % 24
-                days_since_prior = i % 30
-                timestamp = generate_timestamp(order_hour, days_since_prior)
-
-                queries.append(f"""
-                    INSERT INTO orders (user_id, order_number, order_dow, order_timestamp, days_since_prior_order)
-                    VALUES ({user_id}, {order_number}, {order_dow}, '{timestamp}', {days_since_prior})
-                """)
-
-        elif test_name == "update":
-            for i in range(1, num_queries + 1):
-                order_id = i
-                timestamp = generate_timestamp(i % 24, i % 30)
-                queries.append(f"""
-                    UPDATE orders 
-                    SET order_timestamp = '{timestamp}'
-                    WHERE order_id = {order_id}
-                """)
-
-        elif test_name == "delete":
-            for i in range(1, num_queries + 1):
-                order_id = i
-                queries.append(f"""
-                    DELETE FROM orders WHERE order_id = {order_id}
-                """)
+        # elif test_name == "insert":
+        #     for i in range(1, num_queries + 1):
+        #         user_id = 206210 + i
+        #         order_number = i
+        #         order_dow = i % 7
+        #         order_hour = i % 24
+        #         days_since_prior = i % 30
+        #         timestamp = generate_timestamp(order_hour, days_since_prior)
+        #
+        #         queries.append(f"""
+        #             INSERT INTO orders (user_id, order_number, order_dow, order_timestamp, days_since_prior_order)
+        #             VALUES ({user_id}, {order_number}, {order_dow}, '{timestamp}', {days_since_prior})
+        #         """)
+        #
+        # elif test_name == "update":
+        #     for i in range(1, num_queries + 1):
+        #         order_id = i
+        #         timestamp = generate_timestamp(i % 24, i % 30)
+        #         queries.append(f"""
+        #             UPDATE orders
+        #             SET order_timestamp = '{timestamp}'
+        #             WHERE order_id = {order_id}
+        #         """)
+        #
+        # elif test_name == "delete":
+        #     for i in range(1, num_queries + 1):
+        #         order_id = i
+        #         queries.append(f"""
+        #             DELETE FROM orders WHERE order_id = {order_id}
+        #         """)
 
         return queries
 

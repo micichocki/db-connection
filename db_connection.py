@@ -1,7 +1,7 @@
 import sqlite3
 import psycopg2
 import pymongo
-import cassandra.cluster
+#import cassandra.cluster
 import mariadb
 import argparse
 import csv
@@ -54,7 +54,7 @@ def save_test_result(db_type, test_name, number_of_queries, execution_time):
 
         plt.plot(x_vals, y_vals, marker='o', label=db_label)
 
-    plt.xlabel("Number of Queries")
+    plt.xlabel("Number of Records")
     plt.ylabel("Execution Time (s)")
     plt.title(f"Execution Time Comparison for Test: {test_name}")
     plt.legend()
@@ -86,21 +86,20 @@ def connect_to_mariadb(db_name, user, password, host="localhost", port=3306):
     return mariadb.connect(user=user, password=password, host=host, port=port, database=db_name)
 
 
-def execute_sql_queries(connection, queries, db_type, number_of_query_executions=1):
+def execute_sql_queries(connection, query, db_type, records_number, number_of_query_executions=1):
     cursor = connection.cursor()
 
-    def execute_queries():
+    def execute_query():
         try:
-            for query in queries:
-                cursor.execute(query)
+            cursor.execute(query)
         except Exception as e:
             print(f"Error during execution: {e}")
 
-    execution_time = timeit.timeit(execute_queries, number=number_of_query_executions)
+    execution_time = timeit.timeit(execute_query, number=number_of_query_executions)
     connection.rollback()
     avg_execution_time = execution_time / number_of_query_executions
-    print(f"{db_type} average execution time per {number_of_query_executions} calls: {avg_execution_time} seconds")
-    log_execution_time(db_type, queries, execution_time)
+    print(f"{db_type} average execution time per {number_of_query_executions} calls: {avg_execution_time} seconds for {records_number} records")
+    log_execution_time(db_type, query, execution_time)
 
     return avg_execution_time
 
@@ -126,10 +125,10 @@ def load_database_credentials() -> dict:
     return {
         "postgres": {
             "host": os.getenv("POSTGRES_HOST", "localhost"),
-            "db_name": os.getenv("POSTGRES_DB", "test"),
+            "db_name": os.getenv("POSTGRES_DB", "instacart"),
             "port": int(os.getenv("POSTGRES_PORT", 5432)),
-            "user": os.getenv("POSTGRES_USER", "postgres"),
-            "password": os.getenv("POSTGRES_PASSWORD", "password")
+            "user": os.getenv("POSTGRES_USER", "root"),
+            "password": os.getenv("POSTGRES_PASSWORD", "root")
         },
         "mongo": {
             "host": os.getenv("MONGO_HOST", "localhost"),
@@ -141,10 +140,10 @@ def load_database_credentials() -> dict:
         },
         "mariadb": {
             "host": os.getenv("MARIADB_HOST", "localhost"),
-            "db_name": os.getenv("MARIADB_DB", "test"),
+            "db_name": os.getenv("MARIADB_DB", "instacart"),
             "port": int(os.getenv("MARIADB_PORT", 3306)),
-            "user": os.getenv("MARIADB_USER", "root"),
-            "password": os.getenv("MARIADB_PASSWORD", "password")
+            "user": os.getenv("MARIADB_USER", "user"),
+            "password": os.getenv("MARIADB_PASSWORD", "user_password")
         },
         "sqlite": {
             "db_name": os.getenv("SQLITE_DB_NAME", "test.db")
@@ -152,20 +151,20 @@ def load_database_credentials() -> dict:
     }
 
 
-def main(db_type, number_of_queries, test_name, number_of_query_executions):
+def main(db_type, records_number, test_name, number_of_query_executions):
     credentials = load_database_credentials()
 
     if db_type == "postgres":
-        run_postgres(credentials, number_of_queries, test_name, number_of_query_executions)
+        run_postgres(credentials, records_number, test_name, number_of_query_executions)
     elif db_type == "mongo":
-        run_mongo(credentials, number_of_queries, test_name, number_of_query_executions)
+        run_mongo(credentials, records_number, test_name, number_of_query_executions)
     elif db_type == "cassandra":
-        run_cassandra(credentials, number_of_queries, test_name, number_of_query_executions)
+        run_cassandra(credentials, records_number, test_name, number_of_query_executions)
     elif db_type == "mariadb":
-        run_mariadb(credentials, number_of_queries, test_name, number_of_query_executions)
+        run_mariadb(credentials, records_number, test_name, number_of_query_executions)
 
 
-def run_mariadb(credentials, number_of_queries, test_name, number_of_query_executions):
+def run_mariadb(credentials, records_number, test_name, number_of_query_executions):
     mariadb = Database(
         credentials["mariadb"]["host"],
         credentials["mariadb"]["db_name"],
@@ -180,9 +179,9 @@ def run_mariadb(credentials, number_of_queries, test_name, number_of_query_execu
         mariadb.host,
         mariadb.port
     )
-    queries = DataProvider.get_mariadb_queries(test_name, number_of_queries)
-    execution_time = execute_sql_queries(connection, queries, "MariaDB", number_of_query_executions)
-    save_test_result('mariadb', test_name, number_of_queries, execution_time)
+    queries = DataProvider.get_mariadb_queries(test_name, records_number)
+    execution_time = execute_sql_queries(connection, queries, "MariaDB", records_number, number_of_query_executions)
+    save_test_result('mariadb', test_name, records_number, execution_time)
     connection.close()
 
 
@@ -192,7 +191,7 @@ def run_cassandra(credentials, number_of_queries, test_name, number_of_query_exe
         None,
         credentials["cassandra"]["port"]
     )
-    client = connect_to_cassandra(cassandra.host, cassandra.port)
+    client = connect_to_cassandra([cassandra.host], cassandra.port)
     queries = DataProvider.get_cassandra_queries(test_name, number_of_queries)
     execution_time = execute_sql_queries(client, queries, "Cassandra", number_of_query_executions)
     save_test_result('cassandra', test_name, number_of_queries, execution_time)
@@ -210,7 +209,7 @@ def run_mongo(credentials, number_of_queries, test_name, number_of_query_executi
     save_test_result('mongo', test_name, number_of_queries, execution_time)
 
 
-def run_postgres(credentials, number_of_queries, test_name, number_of_query_executions):
+def run_postgres(credentials, records_number, test_name, number_of_query_executions):
     postgres = Database(
         credentials["postgres"]["host"],
         credentials["postgres"]["db_name"],
@@ -225,9 +224,9 @@ def run_postgres(credentials, number_of_queries, test_name, number_of_query_exec
         postgres.host,
         postgres.port
     )
-    queries = DataProvider.get_postgres_queries(test_name, number_of_queries)
-    execution_time = execute_sql_queries(connection, queries, "PostgreSQL", number_of_query_executions)
-    save_test_result('postgres', test_name, number_of_queries, execution_time)
+    queries = DataProvider.get_postgres_queries(test_name, records_number)
+    execution_time = execute_sql_queries(connection, queries, "PostgreSQL", records_number, number_of_query_executions)
+    save_test_result('postgres', test_name, records_number, execution_time)
     connection.close()
 
 test_names = ["insert_base", 
@@ -247,9 +246,9 @@ test_names = ["insert_base",
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Database query execution script.")
     parser.add_argument("--db_type", type=str, required=True, choices=["postgres", "mongo", "cassandra", "mariadb", "sqlite"], help="Type of the database.")
-    parser.add_argument("--queries_num", type=int, default=1, help="Number of times to execute the queries.")
+    parser.add_argument("--records_num", type=int, default=1, help="Number of records to retrieve.")
     parser.add_argument("--test_name", type=str, required=True, choices=test_names, help="Type of the queries to execute.")
     parser.add_argument("--executions_num", type=int, default=1, help="Number of times to execute the entire set of queries.")
     args = parser.parse_args()
 
-    main(args.db_type, args.queries_num, args.test_name, args.executions_num)
+    main(args.db_type, args.records_num, args.test_name, args.executions_num)
