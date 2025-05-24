@@ -13,9 +13,7 @@ from Database import Database
 
 def log_execution_time(db_type, queries, execution_time):
     """Log execution time to a CSV file."""
-
     return
-    # Disabled
     with open("execution_times.csv", "a", newline="") as file:
         writer = csv.writer(file)
         writer.writerow([db_type, "; ".join(queries), execution_time])
@@ -98,6 +96,21 @@ def execute_sql_queries(connection, query, db_type, records_number, number_of_qu
 
     return avg_execution_time
 
+def execute_cassandra_queries(session, query, db_type, records_number, number_of_query_executions=1):
+    def execute_query():
+        try:
+            session.execute(query)
+        except Exception as e:
+            print(f"Error during execution: {e}")
+
+    execution_time = timeit.timeit(execute_query, number=number_of_query_executions)
+    avg_execution_time = execution_time / number_of_query_executions
+    print(f"{db_type} average execution time per {number_of_query_executions} calls: {avg_execution_time} seconds for {records_number} records")
+    log_execution_time(db_type, [query], execution_time)
+
+    return avg_execution_time
+
+
 def execute_mongo_queries(client, db_name, queries, number_of_query_executions=1):
     db = client[db_name]
 
@@ -156,7 +169,7 @@ def main(db_type, records_number, test_name, number_of_query_executions):
         run_mariadb(credentials, records_number, test_name, number_of_query_executions)
 
 
-def run_mariadb(credentials, records_number, test_name, number_of_query_executions):
+def run_mariadb(credentials, records_number, test_name, number_of_query_executions, return_time=False):
     mariadb = Database(
         credentials["mariadb"]["host"],
         credentials["mariadb"]["db_name"],
@@ -175,9 +188,11 @@ def run_mariadb(credentials, records_number, test_name, number_of_query_executio
     execution_time = execute_sql_queries(connection, queries, "MariaDB", records_number, number_of_query_executions)
     save_test_result('mariadb', test_name, records_number, execution_time)
     connection.close()
+    if return_time:
+        return execution_time
 
 
-def run_cassandra(credentials, records_number, test_name, number_of_query_executions):
+def run_cassandra(credentials, records_number, test_name, number_of_query_executions, return_time=False):
     cassandra = Database(
         credentials["cassandra"]["contact_points"][0],
         None,
@@ -185,11 +200,13 @@ def run_cassandra(credentials, records_number, test_name, number_of_query_execut
     )
     client = connect_to_cassandra([cassandra.host], cassandra.port)
     query = DataProvider.get_cassandra_queries(test_name, records_number)
-    execution_time = execute_sql_queries(client, query, "Cassandra", records_number, number_of_query_executions)
+    execution_time = execute_cassandra_queries(client, query, "Cassandra", records_number, number_of_query_executions)
     save_test_result('cassandra', test_name, records_number, execution_time)
+    if return_time:
+        return execution_time
 
 
-def run_mongo(credentials, number_of_queries, test_name, number_of_query_executions):
+def run_mongo(credentials, number_of_queries, test_name, number_of_query_executions, return_time=False):
     mongo = Database(
         credentials["mongo"]["host"],
         None,
@@ -199,9 +216,11 @@ def run_mongo(credentials, number_of_queries, test_name, number_of_query_executi
     queries = DataProvider.get_mongo_queries(test_name, number_of_queries)
     execution_time = execute_mongo_queries(client, "instacart", queries, number_of_query_executions)
     save_test_result('mongo', test_name, number_of_queries, execution_time)
+    if return_time:
+        return execution_time
 
 
-def run_postgres(credentials, records_number, test_name, number_of_query_executions):
+def run_postgres(credentials, records_number, test_name, number_of_query_executions, return_time=False):
     postgres = Database(
         credentials["postgres"]["host"],
         credentials["postgres"]["db_name"],
@@ -220,6 +239,8 @@ def run_postgres(credentials, records_number, test_name, number_of_query_executi
     execution_time = execute_sql_queries(connection, queries, "PostgreSQL", records_number, number_of_query_executions)
     save_test_result('postgres', test_name, records_number, execution_time)
     connection.close()
+    if return_time:
+        return execution_time
 
 test_names = ["insert_base", 
               "insert_multi", 
