@@ -1,7 +1,6 @@
-import sqlite3
 import psycopg2
 import pymongo
-#import cassandra.cluster
+import cassandra.cluster
 import mariadb
 import argparse
 import csv
@@ -63,10 +62,6 @@ def save_test_result(db_type, test_name, number_of_queries, execution_time):
     plt.tight_layout()
     plt.savefig(os.path.join(folder_path, f"{test_name}.png"))
     plt.close()
-    
-
-def connect_to_sqlite(db_name):
-    return sqlite3.connect(db_name)
 
 
 def connect_to_postgresql(db_name, user, password, host="localhost", port=5432):
@@ -145,9 +140,6 @@ def load_database_credentials() -> dict:
             "user": os.getenv("MARIADB_USER", "user"),
             "password": os.getenv("MARIADB_PASSWORD", "user_password")
         },
-        "sqlite": {
-            "db_name": os.getenv("SQLITE_DB_NAME", "test.db")
-        }
     }
 
 
@@ -185,16 +177,16 @@ def run_mariadb(credentials, records_number, test_name, number_of_query_executio
     connection.close()
 
 
-def run_cassandra(credentials, number_of_queries, test_name, number_of_query_executions):
+def run_cassandra(credentials, records_number, test_name, number_of_query_executions):
     cassandra = Database(
         credentials["cassandra"]["contact_points"][0],
         None,
         credentials["cassandra"]["port"]
     )
     client = connect_to_cassandra([cassandra.host], cassandra.port)
-    queries = DataProvider.get_cassandra_queries(test_name, number_of_queries)
-    execution_time = execute_sql_queries(client, queries, "Cassandra", number_of_query_executions)
-    save_test_result('cassandra', test_name, number_of_queries, execution_time)
+    query = DataProvider.get_cassandra_queries(test_name, records_number)
+    execution_time = execute_sql_queries(client, query, "Cassandra", records_number, number_of_query_executions)
+    save_test_result('cassandra', test_name, records_number, execution_time)
 
 
 def run_mongo(credentials, number_of_queries, test_name, number_of_query_executions):
@@ -245,7 +237,7 @@ test_names = ["insert_base",
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Database query execution script.")
-    parser.add_argument("--db_type", type=str, required=True, choices=["postgres", "mongo", "cassandra", "mariadb", "sqlite"], help="Type of the database.")
+    parser.add_argument("--db_type", type=str, required=True, choices=["postgres", "mongo", "cassandra", "mariadb"], help="Type of the database.")
     parser.add_argument("--records_num", type=int, default=1, help="Number of records to retrieve.")
     parser.add_argument("--test_name", type=str, required=True, choices=test_names, help="Type of the queries to execute.")
     parser.add_argument("--executions_num", type=int, default=1, help="Number of times to execute the entire set of queries.")

@@ -4,100 +4,161 @@ from datetime import datetime
 class DataProvider:
     @staticmethod
     def get_postgres_queries(test_name, records_number):
-        queries = []
-        if test_name == "select":
+        if test_name == "select_join":
             return f"""
-                    SELECT o.order_id, o.user_id, o.order_number, 
-                           p.product_id, p.product_name, p.department_id,
-                           op.add_to_cart_order, op.reordered
-                    FROM orders o
-                    JOIN orders_products op ON o.order_id = op.order_id
-                    JOIN products p ON op.product_id = p.product_id
-                    LIMIT {records_number}
-                """;
+                SELECT o.order_id, o.user_id, o.order_number, 
+                       p.product_id, p.product_name, p.department_id,
+                       op.add_to_cart_order, op.reordered
+                FROM orders o
+                JOIN orders_products op ON o.order_id = op.order_id
+                JOIN products p ON op.product_id = p.product_id
+                LIMIT {records_number}
+            """
+        elif test_name == "select_base":
+            return f"""
+                SELECT order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order
+                FROM orders
+                LIMIT {records_number}
+            """
+        elif test_name == "select_date":
+            ts = generate_timestamp(1, 1)  # Use a fixed timestamp for consistency
+            return f"""
+                SELECT order_id, user_id, order_number, order_timestamp
+                FROM orders
+                WHERE order_timestamp >= '{ts}'
+                LIMIT {records_number}
+            """
+        elif test_name == "insert_base":
+            batch_query = ""
+            for i in range(1, records_number + 1):
+                user_id = 300000 + i
+                batch_query += f"""
+                    INSERT INTO users (name)
+                    VALUES ('User{user_id}');
+                """
+            return batch_query
+        elif test_name == "insert_multi":
+            batch_query = ""
+            for i in range(1, records_number + 1):
+                user_id = 300000 + i
+                order_id = 5000000 + i
+                order_number = i
+                order_dow = i % 7
+                ts = generate_timestamp(i % 24, i % 30)
+                days_since_prior = i % 30
 
+                batch_query += f"""
+                    INSERT INTO orders (order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order)
+                    VALUES ({order_id}, {user_id}, {order_number}, {order_dow}, '{ts}', {days_since_prior});
+                """
 
-        # elif test_name == "insert":
-        #     for i in range(1, num_queries + 1):
-        #         user_id = 206210 + i
-        #         order_number = i
-        #         order_dow = i % 7
-        #         order_hour = i % 24
-        #         days_since_prior = i % 30
-        #         timestamp = generate_timestamp(order_hour, days_since_prior)
-        #
-        #         queries.append(f"""
-        #             INSERT INTO orders (user_id, order_number, order_dow, order_timestamp, days_since_prior_order)
-        #             VALUES ({user_id}, {order_number}, {order_dow}, '{timestamp}', {days_since_prior})
-        #             RETURNING order_id
-        #         """)
-        #
-        # elif test_name == "update":
-        #     for i in range(1, num_queries + 1):
-        #         order_id = i
-        #         timestamp = generate_timestamp(i % 24, i % 30)
-        #         queries.append(f"""
-        #             UPDATE orders
-        #             SET order_timestamp = '{timestamp}'
-        #             WHERE order_id = {order_id}
-        #         """)
-        #
-        # elif test_name == "delete":
-        #     for i in range(1, num_queries + 1):
-        #         order_id = i
-        #         queries.append(f"""
-        #             DELETE FROM orders WHERE order_id = {order_id}
-        #         """)
+                for j in range(1, min(3, records_number + 1)):
+                    product_id = 50000 + i
+                    batch_query += f"""
+                        INSERT INTO orders_products (order_id, product_id, add_to_cart_order, reordered)
+                        VALUES ({order_id}, {product_id}, {j}, {i % 2});
+                    """
+            return batch_query
+        elif test_name == "update_base":
+            return f"""
+                UPDATE aisles
+                SET aisle = 'Updated Aisle'
+                WHERE aisle_id BETWEEN 1 AND {records_number};
+            """
+        elif test_name == "delete_base":
+            return f"""
+                DELETE FROM orders 
+                WHERE order_id BETWEEN 1 AND {records_number};
+            """
+        elif test_name == "delete_multi":
+            return f"""
+                DELETE FROM orders_products 
+                WHERE order_id BETWEEN 1 AND {records_number};
 
-        return queries
+                DELETE FROM orders 
+                WHERE order_id BETWEEN 1 AND {records_number};
+            """
+
+        return ""
 
     @staticmethod
     def get_mariadb_queries(test_name, records_number):
-        queries = []
-
-        if test_name == "select":
+        if test_name == "select" or test_name == "select_join":
             return f"""
-                    SELECT o.order_id, o.user_id, o.order_number, 
-                           p.product_id, p.product_name, p.department_id,
-                           op.add_to_cart_order, op.reordered
-                    FROM orders o
-                    JOIN orders_products op ON o.order_id = op.order_id
-                    JOIN products p ON op.product_id = p.product_id
-                    LIMIT {records_number}
-                """;
+                SELECT o.order_id, o.user_id, o.order_number, 
+                       p.product_id, p.product_name, p.department_id,
+                       op.add_to_cart_order, op.reordered
+                FROM orders o
+                JOIN orders_products op ON o.order_id = op.order_id
+                JOIN products p ON op.product_id = p.product_id
+                LIMIT {records_number}
+            """
+        elif test_name == "select_base":
+            return f"""
+                SELECT order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order
+                FROM orders
+                LIMIT {records_number}
+            """
+        elif test_name == "select_date":
+            ts = generate_timestamp(1, 1)
+            return f"""
+                SELECT order_id, user_id, order_number, order_timestamp
+                FROM orders
+                WHERE order_timestamp >= '{ts}'
+                LIMIT {records_number}
+            """
+        elif test_name == "insert_base":
+            batch_query = ""
+            for i in range(1, records_number + 1):
+                user_id = 300000 + i
+                batch_query += f"""
+                    INSERT INTO users (user_id, name)
+                    VALUES ({user_id}, 'User{user_id}');
+                """
+            return batch_query
+        elif test_name == "insert_multi":
+            batch_query = ""
+            for i in range(1, records_number + 1):
+                user_id = 300000 + i
+                order_id = 5000000 + i
+                order_number = i
+                order_dow = i % 7
+                ts = generate_timestamp(i % 24, i % 30)
+                days_since_prior = i % 30
 
-        # elif test_name == "insert":
-        #     for i in range(1, num_queries + 1):
-        #         user_id = 206210 + i
-        #         order_number = i
-        #         order_dow = i % 7
-        #         order_hour = i % 24
-        #         days_since_prior = i % 30
-        #         timestamp = generate_timestamp(order_hour, days_since_prior)
-        #
-        #         queries.append(f"""
-        #             INSERT INTO orders (user_id, order_number, order_dow, order_timestamp, days_since_prior_order)
-        #             VALUES ({user_id}, {order_number}, {order_dow}, '{timestamp}', {days_since_prior})
-        #         """)
-        #
-        # elif test_name == "update":
-        #     for i in range(1, num_queries + 1):
-        #         order_id = i
-        #         timestamp = generate_timestamp(i % 24, i % 30)
-        #         queries.append(f"""
-        #             UPDATE orders
-        #             SET order_timestamp = '{timestamp}'
-        #             WHERE order_id = {order_id}
-        #         """)
-        #
-        # elif test_name == "delete":
-        #     for i in range(1, num_queries + 1):
-        #         order_id = i
-        #         queries.append(f"""
-        #             DELETE FROM orders WHERE order_id = {order_id}
-        #         """)
+                batch_query += f"""
+                    INSERT INTO orders (order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order)
+                    VALUES ({order_id}, {user_id}, {order_number}, {order_dow}, '{ts}', {days_since_prior});
+                """
 
-        return queries
+                for j in range(1, min(3, records_number + 1)):
+                    product_id = 50000 + i
+                    batch_query += f"""
+                        INSERT INTO orders_products (order_id, product_id, add_to_cart_order, reordered)
+                        VALUES ({order_id}, {product_id}, {j}, {i % 2});
+                    """
+            return batch_query
+        elif test_name == "update_base":
+            return f"""
+                UPDATE aisles
+                SET aisle = 'Updated Aisle'
+                WHERE aisle_id BETWEEN 1 AND {records_number};
+            """
+        elif test_name == "delete_base":
+            return f"""
+                DELETE FROM orders 
+                WHERE order_id BETWEEN 1 AND {records_number};
+            """
+        elif test_name == "delete_multi":
+            return f"""
+                DELETE FROM orders_products 
+                WHERE order_id BETWEEN 1 AND {records_number};
+
+                DELETE FROM orders 
+                WHERE order_id BETWEEN 1 AND {records_number};
+            """
+
+        return ""
 
     @staticmethod
     def get_mongo_queries(test_name, num_queries=1):
@@ -215,53 +276,50 @@ class DataProvider:
         return queries
 
     @staticmethod
-    def get_cassandra_queries(test_name, num_queries=1):
-        queries = []
-
+    def get_cassandra_queries(test_name, records_number=1):
         if test_name == "select_base":
-            for i in range(1, num_queries + 1):
-                order_id = i
-                queries.append(f"""
-                    SELECT order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order
-                    FROM instacart.orders
-                    WHERE order_id = {order_id}
-                """)
+            return f"""
+                SELECT order_id, user_id, order_number, order_dow, order_timestamp, days_since_prior_order
+                FROM instacart.orders
+                LIMIT {records_number}
+            """
 
         elif test_name == "select_join":
-            for i in range(1, num_queries + 1):
-                order_id = i
-                queries.append(f"""
-                    SELECT order_id, user_id, order_number, order_dow, 
-                           order_timestamp, product_id, product_name,
-                           add_to_cart_order, reordered
-                    FROM instacart.order_products_by_order
-                    WHERE order_id = {order_id}
-                """)
+            return f"""
+                SELECT order_id, user_id, order_number, order_dow, 
+                       order_timestamp, product_id, product_name,
+                       add_to_cart_order, reordered
+                FROM instacart.order_products_by_order
+                LIMIT {records_number}
+            """
 
         elif test_name == "select_date":
-            for i in range(1, num_queries + 1):
-                ts = generate_timestamp(i % 24, i % 30)
-                queries.append(f"""
-                    SELECT order_id, user_id, order_number, order_timestamp
-                    FROM instacart.orders_by_timestamp
-                    WHERE order_timestamp >= '{ts}'
-                    LIMIT 1 ALLOW FILTERING
-                """)
+            ts = generate_timestamp(1, 1)  # Use a fixed timestamp for consistency
+            return f"""
+                SELECT order_id, user_id, order_number, order_timestamp
+                FROM instacart.orders_by_timestamp
+                WHERE order_timestamp >= '{ts}'
+                LIMIT {records_number} ALLOW FILTERING
+            """
 
         elif test_name == "insert_base":
-            for i in range(1, num_queries + 1):
+            batch_query = "BEGIN BATCH\n"
+            for i in range(1, records_number + 1):
                 user_id = 300000 + i
-                queries.append(f"""
+                batch_query += f"""
                     INSERT INTO instacart.users (
                         user_id, name
                     )
                     VALUES (
                         {user_id}, 'User{user_id}'
-                    )
-                """)
+                    );
+                """
+            batch_query += "APPLY BATCH;"
+            return batch_query
 
         elif test_name == "insert_multi":
-            for i in range(1, num_queries + 1):
+            batch_query = "BEGIN BATCH\n"
+            for i in range(1, records_number + 1):
                 user_id = 300000 + i
                 order_id = 5000000 + i
                 order_number = i
@@ -269,7 +327,7 @@ class DataProvider:
                 ts = generate_timestamp(i % 24, i % 30)
                 days_since_prior = i % 30
 
-                queries.append(f"""
+                batch_query += f"""
                     INSERT INTO instacart.orders (
                         order_id, user_id, order_number, order_dow,
                         order_timestamp, days_since_prior_order
@@ -277,22 +335,22 @@ class DataProvider:
                     VALUES (
                         {order_id}, {user_id}, {order_number}, {order_dow},
                         '{ts}', {days_since_prior}
-                    )
-                """)
+                    );
+                """
 
-                queries.append(f"""
+                batch_query += f"""
                     INSERT INTO instacart.orders_by_timestamp (
                         order_timestamp, order_id, user_id, order_number
                     )
                     VALUES (
                         '{ts}', {order_id}, {user_id}, {order_number}
-                    )
-                """)
+                    );
+                """
 
-                for j in range(1, 3):
+                for j in range(1, min(3, records_number + 1)):
                     product_id = 50000 + i
                     product_name = f"Product {i}-{j}"
-                    queries.append(f"""
+                    batch_query += f"""
                         INSERT INTO instacart.order_products_by_order (
                             order_id, product_id, user_id, order_number, order_dow,
                             order_timestamp, days_since_prior_order,
@@ -302,44 +360,58 @@ class DataProvider:
                             {order_id}, {product_id}, {user_id}, {order_number}, {order_dow},
                             '{ts}', {days_since_prior},
                             '{product_name}', {j}, {i % 2}
-                        )
-                    """)
+                        );
+                    """
+            batch_query += "APPLY BATCH;"
+            return batch_query
 
         elif test_name == "update_base":
-            for i in range(1, num_queries + 1):
-                aisle_id = i % 100
-                queries.append(f"""
+            batch_query = "BEGIN BATCH\n"
+
+            aisle_ids = [i % 100 for i in range(1, records_number + 1)]
+            unique_aisle_ids = list(set(aisle_ids))
+
+            for aisle_id in unique_aisle_ids:
+                batch_query += f"""
                     UPDATE instacart.aisles
-                    SET aisle = 'Updated Aisle {i % 7}'
-                    WHERE aisle_id = {aisle_id}
-                """)
+                    SET aisle = 'Updated Aisle'
+                    WHERE aisle_id = {aisle_id};
+                """
+            batch_query += "APPLY BATCH;"
+            return batch_query
 
         elif test_name == "delete_base":
-            for i in range(1, num_queries + 1):
-                order_id = i
-                queries.append(f"""
+            batch_query = "BEGIN BATCH\n"
+
+            order_ids = list(range(1, records_number + 1))
+
+            for order_id in order_ids:
+                batch_query += f"""
                     DELETE FROM instacart.orders
-                    WHERE order_id = {order_id}
-                """)
+                    WHERE order_id = {order_id};
+                """
+            batch_query += "APPLY BATCH;"
+            return batch_query
 
         elif test_name == "delete_multi":
-            for i in range(1, num_queries + 1):
-                order_id = i
+            batch_query = "BEGIN BATCH\n"
 
-                queries.append(f"""
+            order_ids = list(range(1, records_number + 1))
+
+            for order_id in order_ids:
+                batch_query += f"""
                     DELETE FROM instacart.order_products_by_order
-                    WHERE order_id = {order_id}
-                """)
-
-                queries.append(f"""
+                    WHERE order_id = {order_id};
+                """
+                batch_query += f"""
                     DELETE FROM instacart.orders_by_timestamp
-                    WHERE order_id = {order_id}
-                """)
-
-                queries.append(f"""
+                    WHERE order_id = {order_id};
+                """
+                batch_query += f"""
                     DELETE FROM instacart.orders
-                    WHERE order_id = {order_id}
-                """)
+                    WHERE order_id = {order_id};
+                """
+            batch_query += "APPLY BATCH;"
+            return batch_query
 
-        return queries
-
+        return ""
