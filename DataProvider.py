@@ -181,23 +181,20 @@ class DataProvider:
         return ""
 
     @staticmethod
-    def get_mongo_queries(test_name, num_queries=1):
+    def get_mongo_queries(test_name, records_number):
         queries = []
 
         if test_name == "select_base":
-            for i in range(1, num_queries + 1):
-                queries.append(("orders", "find_one", [{"order_id": i}, {
+                return ("orders", "find", [{}, {
                     "user_id": 1,
                     "order_dow": 1,
                     "order_number": 1,
                     "order_datetime": 1
-                }]))
-
+                }], records_number)
 
         elif test_name == "select_join":
-            for i in range(1, num_queries + 1):
-                queries.append(("orders", "aggregate", [[
-                    {"$match": {"order_id": i}},
+                return ("orders", "aggregate", [[
+                    # {"$match": {"order_id": i}},
                     {"$unwind": "$products"},
                     {"$lookup": {
                         "from": "products",
@@ -214,84 +211,89 @@ class DataProvider:
                         "product_name": "$products.product_name",
                         "aisle_id": "$product_details.aisle_id",
                         "department_id": "$product_details.department_id"
-                    }}
-                ]]))
-
+                    }},
+                     {"$limit": records_number}
+                ]], None)
 
         elif test_name == "select_date":
-            for i in range(1, num_queries + 1):
-                ts = generate_timestamp((i % 24), (i % 30), True)
-                queries.append(("orders", "find_one", [{
-                    "order_datetime": {
-                        "$gte": datetime.fromtimestamp(ts)
-                    }
-                }, {
-                    "user_id": 1,
-                    "order_number": 1,
-                    "order_datetime": 1
-                }]))
+            ts = generate_timestamp(1, 1, True)
+            query = ("orders", "find", [{
+                "order_datetime": {
+                    "$gte": datetime.fromtimestamp(ts)
+                }
+            }, {
+                "user_id": 1,
+                "order_number": 1,
+                "order_datetime": 1
+            }], records_number)
+
+            return query
 
         elif test_name == "insert_base":
-            for i in range(1, num_queries + 1):
-                user = {
-                    "user_id": 300000 + i,
-                    "name": f"User{300000 + i}"
-                }
-                queries.append(("users", "insert_one", [user]))
+            users = []
+            for i in range(1, records_number + 1):
+                user_id = 300000 + i
+                users.append({
+                    "user_id": user_id,
+                    "name": f"User{user_id}"
+                })
 
+            query = ("users", "insert_many", [users], None)
+            return query
+        
         elif test_name == "insert_multi":
-            for i in range(1, num_queries + 1):
-                ts = generate_timestamp((i % 24), (i % 30), True)
+            orders = []
+
+            for i in range(1, records_number + 1):
+                ts = generate_timestamp(i % 24, i % 30, True)
                 order_id = 5000000 + i
                 user_id = 300000 + i
+
                 order = {
                     "order_id": order_id,
                     "user_id": user_id,
                     "order_number": i,
                     "order_dow": i % 7,
                     "order_datetime": datetime.fromtimestamp(ts),
-                    "products": [
-                        {"product_id": 50001, "product_name": "Product A"},
-                        {"product_id": 50002, "product_name": "Product B"}
-                    ]
+                    "days_since_prior_order": i % 30,
+                    "products": []
                 }
-                queries.append(("orders", "insert_one", [order]))
+
+                for j in range(1, min(3, records_number + 1)):
+                    product_id = 50000 + j
+                    product = {
+                        "product_id": product_id,
+                        "product_name": f"Product {chr(64 + j)}",
+                        "add_to_cart_order": j,
+                        "reordered": i % 2
+                    }
+                    order["products"].append(product)
+
+                orders.append(order)
+
+            query = ("orders", "insert_many", [orders], None)
+            return query
 
         elif test_name == "update_base":
-            for i in range(1, num_queries + 1):
-                queries.append(("aisles", "update_one", [
-                    {"aisle_id": i % 100},
-                    {"$set": {"aisle": f"Updated Aisle {i % 7}"}}
-                ]))
+            query = (
+                "aisles",
+                "update_many",
+                [
+                    {"aisle_id": {"$gte": 1, "$lte": records_number}},
+                    {"$set": {"aisle": "Updated Aisle"}}
+                ],
+                None
+            )
+            return query
 
         elif test_name == 'delete_base' or test_name == 'delete_mutli':
-            for i in range(1, num_queries + 1):
-                queries.append(("orders", "delete_one", [
-                    {"order_id": i}
-                ]))
-
-        # elif test_name == "insert":
-        #     for i in range(1, num_queries + 1):
-        #         user_id = 206210 + i
-
-        #         order = {
-        #             "_id": 4000000 + i,
-        #             "user_id": user_id,
-        #             "order_number": i,
-        #             "order_dow": i % 7,
-        #             "order_timestamp": generate_timestamp(i % 24, i % 30),
-        #             "days_since_prior_order": i % 30,
-        #         }
-        #         queries.append(("orders", "insert_one", [order]))
-
-        # elif test_name == "update":
-        #     for i in range(1, num_queries + 1):
-        #         queries.append(("orders", "update_one",
-        #                         [{"_id": i}, {"$set": {"order_timestamp": generate_timestamp(i % 24, i % 30)}}]))
-
-        # elif test_name == "delete":
-        #     for i in range(1, num_queries + 1):
-        #         queries.append(("orders", "delete_one", [{"_id": i}]))
+            query = (
+                "orders",
+                "delete_many",
+                [{"order_id": {"$gte": 1, "$lte": records_number}}],
+                None
+            )
+            return query
 
         return queries
 

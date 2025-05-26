@@ -116,19 +116,23 @@ def execute_cassandra_queries(session, query, db_type, records_number, number_of
     return avg_execution_time
 
 
-def execute_mongo_queries(client, db_name, queries, number_of_query_executions=1):
+def execute_mongo_queries(client, db_name, query, number_of_query_executions=1):
     db = client[db_name]
+    collection_name, operation, params, limit = query
+    collection = db[collection_name]
 
     def execute_queries():
-        for query in queries:
-            collection_name, operation, params = query
-            collection = db[collection_name]
+        if operation == "find" and limit is not None:
+            collection.find(*params).limit(limit)
+            # print(list(res))
+        else:
             getattr(collection, operation)(*params)
+            # print(list(res))
 
     execution_time = timeit.timeit(execute_queries, number=number_of_query_executions)
     avg_execution_time = execution_time / number_of_query_executions
     print(f"MongoDB average execution time per {number_of_query_executions} calls: {avg_execution_time} seconds")
-    log_execution_time("MongoDB", queries, execution_time)
+    log_execution_time("MongoDB", query, execution_time)
 
     return avg_execution_time
 
