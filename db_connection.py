@@ -81,19 +81,17 @@ def connect_to_mariadb(db_name, user, password, host="localhost", port=3306):
 
 def execute_sql_queries(connection, query, db_type, records_number, number_of_query_executions=1):
     cursor = connection.cursor()
+    if db_type == "PostgreSQL":
+        cursor.execute("BEGIN")
+    elif db_type == "MariaDB":
+        cursor.execute("START TRANSACTION")
 
     def execute_query():
         try:
-            if db_type == "PostgreSQL":
-                cursor.execute("BEGIN")
-            elif db_type == "MariaDB":
-                cursor.execute("START TRANSACTION")
             cursor.execute(query)
         except Exception as e:
             print(f"Error during execution: {e}")
-        finally:
-            connection.rollback()
-
+    connection.rollback()
     execution_time = timeit.timeit(execute_query, number=number_of_query_executions)
     avg_execution_time = execution_time / number_of_query_executions
     print(f"{db_type} average execution time per {number_of_query_executions} calls: {avg_execution_time} seconds for {records_number} records")
